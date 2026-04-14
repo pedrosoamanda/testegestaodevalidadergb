@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RGB - Gestão de Validade</title>
+  <style>
+    /* ===== RESET ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { display: flex; height: 100vh; overflow: hidden; background-color: #f5f6fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    
+    /* ===== SIDEBAR ===== */
+    .sidebar { width: 220px; background-color: #0f1f35; color: white; height: 100vh; display: flex; flex-direction: column; overflow-y: auto; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 10; }
+    .sidebar-header { padding: 12px 16px; min-height: 72px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.15); cursor: pointer; }
+    .sidebar-menu-icon { font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; }
+    .sidebar-logo-img { width: 40px; height: 40px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><rect x="2" y="2" width="4" height="4"/><rect x="8" y="2" width="4" height="4"/><rect x="2" y="8" width="4" height="4"/><rect x="8" y="8" width="4" height="4"/></svg>'); background-size: contain; background-repeat: no-repeat; flex-shrink: 0; }
+    .sidebar-title { font-weight: 600; font-size: 16px; color: white; }
+
+    .menu-item { padding: 0 16px; height: 56px; font-size: 14px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: space-between; transition: background-color 0.2s; border-left: 3px solid transparent; gap: 12px; }
+    .menu-item-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .menu-item-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .menu-item:hover { background-color: rgba(255, 255, 255, 0.08); }
+    .menu-item.active { background-color: #222222; border-left-color: #4a90e2; }
+    .menu-item .arrow { font-size: 14px; color: white; transition: transform 0.3s ease; flex-shrink: 0; display: flex; align-items: center; }
+    .menu-item.expanded .arrow { transform: rotate(90deg); }
+
+    .submenu { display: none; flex-direction: column; background-color: rgba(0, 0, 0, 0.2); }
+    .submenu.open { display: flex; }
+    .submenu-item { padding: 0 16px 0 46px; height: 56px; font-size: 14px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: space-between; transition: background-color 0.2s; border-left: 3px solid transparent; gap: 8px; }
+    .submenu-item:hover { background-color: rgba(255, 255, 255, 0.08); }
+    .submenu-item.active { background-color: #222222; border-left-color: #4a90e2; }
+    .submenu-item .arrow { font-size: 14px; color: white; transition: transform 0.3s ease; flex-shrink: 0; display: flex; align-items: center; }
+    .submenu-item.expanded .arrow { transform: rotate(90deg); }
+
+    .submenu-level-2 { display: none; flex-direction: column; background-color: rgba(0, 0, 0, 0.3); }
+    .submenu-level-2.open { display: flex; }
+    .submenu-level-2-item { padding: 0 16px 0 46px; height: 48px; font-size: 13px; cursor: pointer; color: #cfd8dc; display: flex; align-items: center; justify-content: space-between; transition: background-color 0.2s, color 0.2s; border-left: 3px solid transparent; }
+    .submenu-level-2-item:hover { background-color: rgba(255, 255, 255, 0.08); color: white; }
+    .submenu-level-2-item .arrow { font-size: 12px; color: #4a90e2; transition: transform 0.3s ease; }
+    .submenu-level-2-item.expanded .arrow { transform: rotate(90deg); }
+
+    .submenu-level-3 { display: none; flex-direction: column; background-color: rgba(0, 0, 0, 0.4); }
+    .submenu-level-3.open { display: flex; }
+    .submenu-level-3-item { padding: 0 16px 0 60px; height: 40px; font-size: 12px; cursor: pointer; color: #b0bec5; display: flex; align-items: center; transition: 0.2s; border-left: 3px solid transparent; }
+    .submenu-level-3-item:hover { background-color: rgba(255, 255, 255, 0.08); color: white; }
+    .submenu-level-3-item.active { background-color: #222222; color: white; border-left-color: #4a90e2; font-weight: bold; }
+
+    .sidebar-footer { margin-top: auto; border-top: 1px solid rgba(255, 255, 255, 0.15); padding: 16px; text-align: center; font-size: 11px; color: white; }
+
+    /* ===== MAIN LAYOUT ===== */
+    .main { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
+    
+    .header { height: 56px; background-color: white; border-bottom: 1px solid #e8e9ec; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; z-index: 5; flex-shrink: 0;}
+    .header-left { display: flex; align-items: center; gap: 24px; flex: 1; }
+    .header-logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 48px; height: 48px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%238BC34A;stop-opacity:1" /><stop offset="50%" style="stop-color:%23CDDC39;stop-opacity:1" /></linearGradient><linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:%231E88E5;stop-opacity:1" /><stop offset="100%" style="stop-color:%230D47A1;stop-opacity:1" /></linearGradient></defs><g><ellipse cx="35" cy="25" rx="20" ry="35" fill="url(%23grad1)" transform="rotate(-20 35 25)"/><ellipse cx="65" cy="30" rx="20" ry="35" fill="url(%23grad2)" transform="rotate(30 65 30)"/><circle cx="60" cy="70" r="25" fill="%23FF6F00"/><circle cx="65" cy="75" r="8" fill="white"/></g></svg>'); background-size: contain; background-repeat: no-repeat; background-position: center; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 14px; flex-shrink: 0; }
+    .logo-text { display: flex; flex-direction: column; gap: 2px; }
+    .logo-main { font-size: 13px; font-weight: 700; color: #0f1f35; text-transform: uppercase;}
+    .logo-sub { font-size: 11px; color: #999; }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .notification-icon { width: 32px; height: 32px; background: #f0f2f5; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 14px; position: relative; }
+    .notification-icon:hover { background-color: #e8e9ec; }
+    .notification-badge { position: absolute; top: -4px; right: -4px; width: 20px; height: 20px; background-color: #e74c3c; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+    .user-avatar { width: 40px; height: 40px; background-color: #0f1f35; color: white; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; }
+    .search-bar { background-color: #f0f2f5; border: 1px solid #e8e9ec; padding: 8px 16px; border-radius: 4px; width: 300px; outline: none; font-size: 13px; transition: 0.2s; }
+    .search-bar:focus { border-color: #4a90e2; background-color: white; box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1); }
+
+    /* ===== VIEWS DA SPA ===== */
+    .view-section { display: none; flex: 1; padding: 24px 32px; overflow-y: auto; background-color: white; position: relative; }
+    .view-section.active { display: block; }
+    
+    .breadcrumbs { font-size: 12px; color: #666; margin-bottom: 20px; display: flex; align-items: center; gap: 6px;}
+    .breadcrumbs svg { width: 14px; height: 14px; color: #666; }
+    .breadcrumbs span.current { font-weight: bold; color: #1f2937; }
+    h1 { font-size: 28px; color: #1f2937; margin-bottom: 4px; font-weight: 600;}
+    p.subtitle { color: #666; font-size: 16px; margin-bottom: 24px; }
+
+    /* Componentes Gerais */
+    .btn { padding: 0 20px; height: 40px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; border: none; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center;}
+    .btn-light { background-color: #e5e7eb; color: #4b5563; }
+    .btn-light:hover { background-color: #d1d5db; color: #1f2937; }
+    .btn-primary { background-color: #0033a0; color: white; }
+    .btn-primary:hover { background-color: #002277; }
+    .btn-outline { background-color: transparent; border: 1px solid #4a90e2; color: #4a90e2; height: 48px;}
+    .btn-outline:hover { background-color: #f0f4ff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none;}
+
+    /* Filtros Padrão */
+    .filters-card { border: 1px solid #e8e9ec; border-radius: 8px; padding: 16px 24px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; background: white; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); position: relative; z-index: 20;}
+    .form-group-outline, .filter-group { position: relative; display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 160px; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 12px 2px; background-color: white; transition: border-color 0.2s; height: 48px; }
+    .form-group-outline:focus-within, .filter-group:focus-within { border-color: #264fec; }
+    .form-group-outline label, .filter-group label { font-size: 11px; font-weight: 400; color: #6b7280; margin-bottom: 0px; line-height: 1; }
+    .form-group-outline input, .form-group-outline select, .filter-group input, .filter-group select { border: none; padding: 0; margin-top: 2px; font-size: 14px; color: #1f2937; outline: none; background-color: transparent; width: 100%; box-shadow: none !important;}
+    .select-wrapper::after, .filter-group.select-group::after { content: ''; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; border-right: 1.5px solid #264fec; border-bottom: 1.5px solid #264fec; transform: translateY(-80%) rotate(45deg); pointer-events: none; }
+    .select-wrapper select, .filter-group select { appearance: none; -webkit-appearance: none; cursor: pointer;}
+    .input-prefix { font-size: 14px; color: #4b5563; margin-right: 4px; white-space: nowrap; }
+
+    /* ===== CUSTOM MULTI-SELECT ===== */
+    .custom-select { position: relative; display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 160px; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 12px 2px; background-color: white; transition: border-color 0.2s; height: 48px; }
+    .custom-select:focus-within { border-color: #264fec; }
+    .custom-select label { font-size: 11px; font-weight: 400; color: #6b7280; margin-bottom: 0px; line-height: 1; }
+    .custom-select::after { content: ''; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; border-right: 1.5px solid #264fec; border-bottom: 1.5px solid #264fec; transform: translateY(-80%) rotate(45deg); pointer-events: none; }
+    
+    .select-box { border: none; padding: 0; margin-top: 2px; font-size: 14px; color: #1f2937; outline: none; background-color: transparent; width: 100%; cursor: pointer; display: flex; align-items: center; height: 18px; }
+    .select-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; }
+    
+    .select-options { display: none; position: absolute; top: calc(100% + 4px); left: -1px; right: -1px; background: white; border: 1px solid #4a90e2; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; max-height: 250px; overflow-y: auto; padding: 8px 0; }
+    .select-options.show { display: flex; flex-direction: column; }
+    .select-options label { padding: 8px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; color: #1f2937; transition: background 0.2s;}
+    .select-options label:hover { background-color: #f0f4ff; }
+    .select-options input[type="checkbox"] { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: #4a90e2;}
+
+    .filter-busca { display: flex; flex-direction: column; justify-content: center; flex: 3; min-width: 200px; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 12px 2px; background-color: white; transition: border-color 0.2s; height: 48px; }
+    .filter-busca:focus-within { border-color: #264fec; }
+    .filter-busca label { font-size: 11px; font-weight: 400; color: #6b7280; margin-bottom: 0px; line-height: 1; }
+    .filter-busca input { border: none; padding: 0; margin-top: 2px; font-size: 14px; color: #1f2937; outline: none; background-color: transparent; width: 100%; box-shadow: none !important;}
+
+    /* ===== TELA: CONTROLE DE VALIDADE ===== */
+    .summary-cards { display: flex; gap: 16px; margin-bottom: 24px; position: relative; z-index: 5;}
+    .card { flex: 1; padding: 16px 20px; border-radius: 8px; border: 2px solid transparent; display: flex; flex-direction: column; justify-content: center; background: white; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); cursor: pointer; transition: all 0.2s ease; opacity: 0.65; }
+    .card:hover { transform: translateY(-2px); opacity: 0.85; box-shadow: 0 4px 8px rgba(0,0,0,0.12); }
+    .card.active { opacity: 1; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .card-blue { background-color: #eef2ff; border-color: #d0dcfb; } .card-blue.active { border-color: #4a90e2; }
+    .card-red { background-color: #ffebee; border-color: #ffcdd2; } .card-red.active { border-color: #d32f2f; }
+    .card-yellow { background-color: #fff8e1; border-color: #ffecb3; } .card-yellow.active { border-color: #f57f17; }
+    .card-green { background-color: #e8f5e9; border-color: #c8e6c9; } .card-green.active { border-color: #388e3c; }
+    .card-gray { background-color: #f0f2f5; border-color: #cfd8dc; } .card-gray.active { border-color: #546e7a; }
+    .card-number { font-size: 28px; font-weight: bold; line-height: 1; margin-bottom: 4px; }
+    .card-blue .card-number { color: #4a90e2; } .card-red .card-number { color: #d32f2f; } .card-yellow .card-number { color: #f57f17; } .card-green .card-number { color: #388e3c; } .card-gray .card-number { color: #546e7a; }
+    .card-text { font-size: 12px; font-weight: 600; color: #424242; text-transform: uppercase; margin-bottom: 8px; }
+    .card-perc { font-size: 12px; color: #666; font-weight: 500; display: flex; align-items: center; }
+    .card-perc strong { font-size: 14px; color: #1f2937; margin-right: 4px; }
+
+    .table-actions-bar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+    .table-container { border: 1px solid #e8e9ec; border-radius: 8px; background: white; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); overflow: hidden; padding-bottom: 8px; margin-bottom: 40px;} 
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid #e8e9ec; font-size: 14px; }
+    th { background-color: #f5f6fa; font-size: 12px; text-transform: uppercase; color: #1f2937; font-weight: 600; }
+    tbody tr.standard-row:hover, tbody tr.child-row:hover { background-color: #fafafa; }
+    .text-right { text-align: right; } .text-center { text-align: center; } .fw-bold { font-weight: bold; }
+    
+    .parent-row { background-color: #f8faff; cursor: pointer; transition: background-color 0.2s; }
+    .parent-row:hover { background-color: #edf2ff; }
+    .toggle-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; background-color: #e0e8ff; color: #4a90e2; font-weight: bold; font-size: 12px; transition: transform 0.2s ease, background-color 0.2s; }
+    .parent-row:hover .toggle-icon { background-color: #cddbfe; }
+    .toggle-icon.expanded { transform: rotate(90deg); }
+    .child-row { display: none; background-color: white; }
+    .child-row.show { display: table-row; }
+    .child-indent { padding-left: 24px !important; position: relative; }
+    
+    .chip { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
+    .bg-red { background-color: #d32f2f; } .bg-yellow { background-color: #f57f17; } .bg-green { background-color: #388e3c; } .bg-gray { background-color: #78909c; } .bg-blue { background-color: #4a90e2; }
+    .text-red { color: #d32f2f; } .text-yellow { color: #f57f17; } .text-green { color: #388e3c; } .text-gray { color: #78909c; }
+    input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #4a90e2; }
+
+    /* ===== TELA: RELATÓRIO ===== */
+    .report-header-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }
+    .report-header-left h1 { font-size: 28px; color: #1f2937; margin-bottom: 4px; font-weight: 600;}
+    .report-header-left p { font-size: 12px; color: #d32f2f; font-weight: 500;} 
+    
+    .section-title { font-size: 20px; font-weight: 600; color: #1f2937; margin-bottom: 20px; margin-top: 40px; padding-bottom: 8px; border-bottom: 1px solid #e8e9ec;}
+    .section-title:first-child { margin-top: 0; border-bottom: none; padding-bottom: 0;}
+    .section-title.blue-title { color: #004b9b; border-bottom: none; margin-bottom: 16px; font-size: 22px; margin-top: 24px;} 
+    
+    .form-grid { display: flex; gap: 24px; margin-bottom: 16px; position: relative; z-index: 10; }
+
+    .accordion-item { border-bottom: 1px solid #e8e9ec; margin-bottom: 16px; padding-bottom: 16px;}
+    .accordion-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 16px; font-weight: 600; color: #1f2937; padding: 12px 0; }
+    .accordion-header svg { transition: transform 0.3s; color: #4a90e2;}
+    .accordion-item.open .accordion-header svg { transform: rotate(180deg); }
+    .accordion-content { display: none; padding: 12px 0; }
+    .accordion-item.open .accordion-content { display: block; }
+
+    .search-row { display: flex; gap: 12px; align-items: stretch; margin-bottom: 16px; }
+    .input-wrapper { flex: 1; border: 1px solid #d1d5db; border-radius: 4px; padding: 0 16px; display: flex; align-items: center; height: 48px; }
+    .input-wrapper input { border: none !important; outline: none !important; box-shadow: none !important; width: 100%; font-size: 14px; color: #1f2937; background: transparent !important; }
+    
+    .btn-square { width: 48px; height: 48px; border: 1px solid #4a90e2; border-radius: 4px; background: transparent; color: #4a90e2; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;}
+    .btn-square:hover { background-color: #f0f4ff; }
+    .btn-filtros { height: 48px; border: 1px solid #4a90e2; border-radius: 4px; background: transparent; color: #4a90e2; display: flex; align-items: center; gap: 8px; padding: 0 24px; font-weight: 600; cursor: pointer; transition: 0.2s;}
+    .btn-filtros:hover { background-color: #f0f4ff; }
+
+    .info-alert { background-color: #f3f4f6; border-radius: 4px; padding: 16px; display: flex; align-items: flex-start; gap: 12px; font-size: 13px; color: #4b5563; margin-top: 16px;}
+    .info-alert svg { width: 16px; height: 16px; color: #6b7280; flex-shrink: 0; margin-top: 2px;}
+
+    .arquivo-section { display: flex; flex-direction: column; gap: 24px; padding: 8px 0 24px 0; }
+    .arquivo-group { display: flex; flex-direction: column; gap: 8px; }
+    .arquivo-label { font-size: 14px; color: #6b7280; }
+    .radio-options { display: flex; gap: 32px; align-items: center; }
+    .radio-label { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #1f2937; cursor: pointer; }
+    .radio-label input[type="radio"] { width: 18px; height: 18px; accent-color: #0033a0; cursor: pointer; }
+
+    .bottom-actions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 24px; border-top: 1px solid #e8e9ec; margin-top: 16px; margin-bottom: 32px;}
+
+    /* ===== GAVETA E MODAIS ===== */
+    .modal-overlay { 
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+      background-color: rgba(0,0,0,0.5); z-index: 999; opacity: 0; transition: opacity 0.3s ease; 
+      justify-content: center; align-items: center; 
+    }
+    .modal-overlay.active { display: flex; opacity: 1; pointer-events: auto; }
+    .modal { background: white; border-radius: 8px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); padding: 32px; max-width: 450px; width: 100%; animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-header { margin-bottom: 24px; text-align: center; }
+    .modal-title { font-size: 20px; font-weight: 700; color: #1f2937; margin-bottom: 8px; }
+    .modal-subtitle { font-size: 14px; color: #666; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 32px; }
+    .success-message { display: none; background-color: #e8f5e9; border-left: 4px solid #27ae60; padding: 20px; border-radius: 4px; color: #1b5e20; font-size: 14px; font-weight: 600; text-align: center;}
+    .success-message.show { display: block; }
+    
+    /* Drawer Lateral */
+    .drawer-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.4); z-index: 100; opacity: 0; transition: opacity 0.3s ease; }
+    .drawer-overlay.show { display: block; opacity: 1; pointer-events: auto; }
+    .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 450px; background-color: white; z-index: 101; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; box-shadow: -4px 0 15px rgba(0,0,0,0.05); }
+    .drawer.show { transform: translateX(0); }
+    .drawer-header { padding: 24px; border-bottom: 1px solid #e8e9ec; display: flex; justify-content: space-between; align-items: center; }
+    .drawer-title { font-size: 20px; font-weight: 400; color: #1f2937; }
+    .drawer-close { background: none; border: none; font-size: 24px; color: #4a90e2; cursor: pointer; display: flex; align-items: center; justify-content: center;}
+    .drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
+    
+    .drawer-search { border: 1px solid #d1d5db; border-radius: 4px; padding: 10px 16px; display: flex; align-items: center; margin-bottom: 24px; }
+    .drawer-search input { border: none; outline: none; width: 100%; font-size: 14px; color: #1f2937;}
+    .drawer-search svg { color: #4a90e2; width: 18px; height: 18px; flex-shrink: 0; }
+
+    .toggle-view { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+    .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #0033a0; }
+    input:checked + .slider:before { transform: translateX(16px); }
+    .toggle-label { font-size: 14px; font-weight: 500; color: #1f2937; }
+
+    .drawer-table { width: 100%; border-collapse: collapse; }
+    .drawer-table th { font-size: 12px; color: #1f2937; font-weight: 600; text-align: left; padding: 16px 8px; border-bottom: 1px solid #e8e9ec; background-color: white; }
+    .drawer-table td { padding: 16px 8px; font-size: 13px; color: #1f2937; border-bottom: 1px solid #e8e9ec; }
+    .sort-icon { width: 12px; height: 12px; margin-left: 4px; color: #6b7280; vertical-align: middle; }
+    
+    .pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; font-size: 12px; color: #6b7280; }
+    .page-numbers { display: flex; gap: 8px; }
+    .page-numbers span { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #4a90e2; font-weight: 500;}
+    .page-numbers span.active { background-color: #0f1f35; color: white; border-radius: 4px; }
+
+    .drawer-footer { padding: 24px; border-top: 1px solid #e8e9ec; display: flex; justify-content: flex-end; gap: 12px; }
+
+    .toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(100px); background-color: #1f2937; color: white; padding: 16px 32px; border-radius: 8px; font-weight: 500; transition: transform 0.4s ease; z-index: 1000; box-shadow: 0 10px 25px rgba(0,0,0,0.2);}
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ===== ÁREA DE IMPRESSÃO (PDF) ===== */
+    #print-area { display: none; }
+    @media print {
+      body * { visibility: hidden; }
+      body { background-color: white; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { display: block; position: absolute; left: 0; top: 0; width: 100%; font-family: Arial, sans-serif; padding: 20px;}
+      .print-title { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 16px; }
+      .print-store { font-size: 14px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
+      .print-filters { font-size: 12px; margin-bottom: 16px; color: #333; }
+      .print-table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; }
+      .print-table th { border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 6px 4px; font-weight: bold; }
+      .print-table td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+      .print-group-row { background-color: #e0e0e0 !important; font-weight: bold; text-align: center; border-bottom: 1px solid #ccc;}
+      .print-group-row td { padding: 4px; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-menu-icon">☰</div>
+      <div class="sidebar-logo-img"></div>
+      <div class="sidebar-title">Retaguarda GB</div>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <div class="menu-item-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </div>
+        <span>Meu menu</span>
+      </div>
+      <span class="arrow">›</span>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <div class="menu-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+        <span>Dashboard</span>
+      </div>
+    </div>
+
+    <div class="menu-item">
+      <div class="menu-item-left">
+        <div class="menu-item-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3 7h7l-6 5 2 7-6-5-6 5 2-7-6-5h7l3-7z"/></svg></div>
+        <span>Produto</span>
+      </div>
+    </div>
+
+    <div class="menu-item expanded" onclick="toggleMenu(this)">
+      <div class="menu-item-left">
+        <div class="menu-item-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        </div>
+        <span>Estoque</span>
+      </div>
+      <span class="arrow">›</span>
+    </div>
+    <div class="submenu open">
+      
+      <div class="submenu-item"><span>Cadastro</span><span class="arrow">›</span></div>
+
+      <div class="submenu-item expanded" onclick="toggleSubmenu(this)">
+        <span>Movimentação de mercadoria</span>
+        <span class="arrow">›</span>
+      </div>
+      <div class="submenu-level-2 open">
+        <div class="submenu-level-2-item">Consulta de saldo</div>
+        
+        <div class="submenu-level-2-item expanded" onclick="toggleN3(this, event)">
+          <span>Gestão de Validade</span>
+          <span class="arrow">›</span>
+        </div>
+        <div class="submenu-level-3 open">
+          <div class="submenu-level-3-item active" id="nav-controle" onclick="switchView('controle', event)">Controle de Validade</div>
+          <div class="submenu-level-3-item" id="nav-relatorio" onclick="switchView('relatorio', event)">Relatório de Validade</div>
+        </div>
+
+        <div class="submenu-level-2-item">Inventário</div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">Universidade da Beleza</div>
+  </div>
+
+  <div class="main">
+    
+    <div class="header">
+      <div class="header-left">
+        <div class="header-logo">
+          <div class="logo-icon"></div>
+          <div class="logo-text">
+            <div class="logo-main" id="user-store-name">CP XXXX</div>
+            <div class="logo-sub">68.626.134/0004-07</div>
+          </div>
+        </div>
+      </div>
+      <div class="header-right">
+        <input type="text" class="search-bar" placeholder="Pesquisar no sistema (Ctrl + K)">
+        <div class="notification-icon">🔔<div class="notification-badge">99</div></div>
+        <div class="user-avatar" title="Perfil">AO</div>
+      </div>
+    </div>
+
+    <div id="view-controle" class="view-section active">
+      <div class="breadcrumbs">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        › Estoque › Movimentação de Mercadoria › Gestão de Validade › <span class="current">Controle de Validade</span>
+      </div>
+      
+      <h1>Controle de Validade</h1>
+      <p class="subtitle">Boas-vindas à nova rotina de Controle de validade.</p>
+
+      <div class="filters-card">
+        <div class="custom-select" id="wrapper-ctrl-dias">
+          <label>A vencer nos próximos:*</label>
+          <div class="select-box" onclick="toggleSelect('ctrl-dias-options', event)">
+            <span class="select-text" id="ctrl-dias-text">Todos</span>
+          </div>
+          <div class="select-options" id="ctrl-dias-options">
+            <label><input type="checkbox" value="Todos" checked onchange="multiSelectChange(this, 'ctrl-dias')"> Todos</label>
+            <label><input type="checkbox" value="30" onchange="multiSelectChange(this, 'ctrl-dias')"> 30 dias</label>
+            <label><input type="checkbox" value="60" onchange="multiSelectChange(this, 'ctrl-dias')"> 60 dias</label>
+            <label><input type="checkbox" value="90" onchange="multiSelectChange(this, 'ctrl-dias')"> 90 dias</label>
+            <label><input type="checkbox" value="120" onchange="multiSelectChange(this, 'ctrl-dias')"> 120 dias</label>
+            <label><input type="checkbox" value="150" onchange="multiSelectChange(this, 'ctrl-dias')"> 150 dias</label>
+            <label><input type="checkbox" value="180" onchange="multiSelectChange(this, 'ctrl-dias')"> 180 dias</label>
+          </div>
+        </div>
+        
+        <div class="custom-select" id="wrapper-ctrl-loja">
+          <label>Loja:*</label>
+          <div class="select-box" onclick="toggleSelect('ctrl-loja-options', event)">
+            <span class="select-text" id="ctrl-loja-text">Todos</span>
+          </div>
+          <div class="select-options" id="ctrl-loja-options">
+            <label><input type="checkbox" value="Todos" checked onchange="multiSelectChange(this, 'ctrl-loja')"> Todos</label>
+            <label><input type="checkbox" value="Matriz SP" onchange="multiSelectChange(this, 'ctrl-loja')"> Matriz SP</label>
+            <label><input type="checkbox" value="Filial RJ" onchange="multiSelectChange(this, 'ctrl-loja')"> Filial RJ</label>
+            <label><input type="checkbox" value="Filial MG" onchange="multiSelectChange(this, 'ctrl-loja')"> Filial MG</label>
+          </div>
+        </div>
+
+        <div class="filter-busca">
+          <label>Pesquisar:</label>
+          <input type="text" id="ctrl-busca" placeholder="o SKU ou descrição..." oninput="aplicarFiltrosControle()">
+        </div>
+      </div>
+
+      <div class="summary-cards">
+        <div class="card card-blue active" id="card-btn-todos" onclick="selecionarStatusControle('Todos')">
+          <div class="card-number" id="card-todos">0</div>
+          <div class="card-text text-blue">Todos</div>
+          <div class="card-perc"><strong id="perc-todos">100%</strong></div>
+        </div>
+        <div class="card card-red" id="card-btn-vencidos" onclick="selecionarStatusControle('Vencido')">
+          <div class="card-number" id="card-vencidos">0</div>
+          <div class="card-text text-red">Itens Vencidos</div>
+          <div class="card-perc"><strong id="perc-vencidos">0%</strong></div>
+        </div>
+        <div class="card card-yellow" id="card-btn-prestes" onclick="selecionarStatusControle('Prestes a Vencer')">
+          <div class="card-number" id="card-prestes">0</div>
+          <div class="card-text text-yellow">Prestes a Vencer</div>
+          <div class="card-perc"><strong id="perc-prestes">0%</strong></div>
+        </div>
+        <div class="card card-green" id="card-btn-noprazo" onclick="selecionarStatusControle('No Prazo')">
+          <div class="card-number" id="card-noprazo">0</div>
+          <div class="card-text text-green">No Prazo</div>
+          <div class="card-perc"><strong id="perc-noprazo">0%</strong></div>
+        </div>
+        <div class="card card-gray" id="card-btn-semvalidade" onclick="selecionarStatusControle('Sem data cadastrada')">
+          <div class="card-number" id="card-semvalidade">0</div>
+          <div class="card-text text-gray">Sem data cadastrada</div>
+          <div class="card-perc"><strong id="perc-semvalidade">0%</strong></div>
+        </div>
+      </div>
+
+      <div class="table-actions-bar">
+        <button id="btn-solicitar-revisao" class="btn btn-outline" disabled onclick="abrirModalEnvioBulk()">Solicitar revisão no IGB</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" onchange="handleSelectAll(this)"></th>
+              <th style="width: 40px;"></th>
+              <th>Cód. Loja</th>
+              <th>Loja</th>
+              <th>SKU</th>
+              <th>Descrição</th>
+              <th class="text-right">Qtd Est.</th>
+              <th>Dt Validade</th>
+              <th class="text-right">Dias</th>
+              <th class="text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-corpo"></tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <div id="view-relatorio" class="view-section">
+      <div class="breadcrumbs">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        › Estoque › Movimentação de Mercadoria › Gestão de Validade › <span class="current">Relatório de Validade</span>
+      </div>
+      
+      <div class="report-header-bar">
+        <div class="report-header-left">
+          <h1>Relatório de Validade</h1>
+          <p>* Campos obrigatórios</p>
+        </div>
+      </div>
+
+      <h2 class="section-title">Informações básicas</h2>
+      <div class="form-grid">
+        <div class="custom-select" id="wrapper-rel-dias">
+          <label>A vencer em:*</label>
+          <div class="select-box" onclick="toggleSelect('rel-dias-options', event)">
+            <span class="select-text" id="rel-dias-text">Todos</span>
+          </div>
+          <div class="select-options" id="rel-dias-options">
+            <label><input type="checkbox" value="Todos" checked onchange="multiSelectChange(this, 'rel-dias')"> Todos</label>
+            <label><input type="checkbox" value="30" onchange="multiSelectChange(this, 'rel-dias')"> 30 dias</label>
+            <label><input type="checkbox" value="60" onchange="multiSelectChange(this, 'rel-dias')"> 60 dias</label>
+            <label><input type="checkbox" value="90" onchange="multiSelectChange(this, 'rel-dias')"> 90 dias</label>
+            <label><input type="checkbox" value="120" onchange="multiSelectChange(this, 'rel-dias')"> 120 dias</label>
+            <label><input type="checkbox" value="150" onchange="multiSelectChange(this, 'rel-dias')"> 150 dias</label>
+            <label><input type="checkbox" value="180" onchange="multiSelectChange(this, 'rel-dias')"> 180 dias</label>
+          </div>
+        </div>
+
+        <div class="custom-select" id="wrapper-rel-status">
+          <label>Status:*</label>
+          <div class="select-box" onclick="toggleSelect('rel-status-options', event)">
+            <span class="select-text" id="rel-status-text">Todos</span>
+          </div>
+          <div class="select-options" id="rel-status-options">
+            <label><input type="checkbox" value="Todos" checked onchange="multiSelectChange(this, 'rel-status')"> Todos</label>
+            <label><input type="checkbox" value="Vencido" onchange="multiSelectChange(this, 'rel-status')"> Vencido</label>
+            <label><input type="checkbox" value="Prestes a Vencer" onchange="multiSelectChange(this, 'rel-status')"> Prestes a Vencer</label>
+            <label><input type="checkbox" value="No Prazo" onchange="multiSelectChange(this, 'rel-status')"> No Prazo</label>
+            <label><input type="checkbox" value="Sem data cadastrada" onchange="multiSelectChange(this, 'rel-status')"> Sem data cadastrada</label>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="section-title">Personalização</h2>
+
+      <div class="accordion-item open" id="acc-lojas">
+        <div class="accordion-header" onclick="toggleAccordion('acc-lojas')">
+          <span>Lojas</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        </div>
+        <div class="accordion-content">
+          <div class="search-row">
+            <div class="input-wrapper" style="cursor: pointer;" onclick="abrirDrawer('Lojas')">
+              <span class="input-prefix">Loja:<span style="color: #d32f2f;">*</span></span>
+              <input type="text" id="rel-input-loja" placeholder="Todos" readonly style="cursor: pointer;">
+            </div>
+            <button class="btn-filtros" onclick="abrirDrawer('Lojas')">
+              Filtros <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            </button>
+          </div>
+          <div class="info-alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            Selecione ao menos 1 loja para exportar o relatório.
+          </div>
+        </div>
+      </div>
+      
+      <div class="accordion-item open" id="acc-produtos">
+        <div class="accordion-header" onclick="toggleAccordion('acc-produtos')">
+          <span>Produtos</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        </div>
+        <div class="accordion-content">
+          <div class="search-row">
+            <div class="input-wrapper" style="cursor: pointer;" onclick="abrirDrawer('Produtos')">
+              <input type="text" id="rel-input-produtos" placeholder="Digite o código ou a descrição para adicionar" readonly style="cursor: pointer;">
+            </div>
+            <button class="btn-square" title="Importar lista"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></button>
+            <button class="btn-filtros" onclick="abrirDrawer('Produtos')">
+              Filtros <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            </button>
+          </div>
+          <div class="info-alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> Na ausência de definições, o relatório irá considerar todos os produtos disponíveis.</div>
+        </div>
+      </div>
+
+      <div class="accordion-item open" id="acc-gestao">
+        <div class="accordion-header" onclick="toggleAccordion('acc-gestao')">
+          <span>Gestão estratégica</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        </div>
+        <div class="accordion-content">
+          <div class="search-row">
+            <div class="input-wrapper" style="cursor: pointer;" onclick="abrirDrawer('Gestão Estratégica')">
+              <input type="text" id="rel-input-gestao" placeholder="Digite o código ou a descrição para adicionar" readonly style="cursor: pointer;">
+            </div>
+            <button class="btn-filtros" onclick="abrirDrawer('Gestão Estratégica')">
+              Filtros <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            </button>
+          </div>
+          <div class="info-alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> Na ausência de definições, o relatório irá considerar todas as gestões estratégicas disponíveis.</div>
+        </div>
+      </div>
+
+      <h2 class="section-title blue-title">Arquivo</h2>
+      <div class="arquivo-section">
+        <div class="arquivo-group">
+          <div class="arquivo-label">Ordem</div>
+          <div class="radio-options">
+            <label class="radio-label"><input type="radio" name="ordem" value="Produto" checked> Produto</label>
+            <label class="radio-label"><input type="radio" name="ordem" value="Descrição"> Descrição</label>
+          </div>
+        </div>
+        <div class="arquivo-group">
+          <div class="arquivo-label">Direção</div>
+          <div class="radio-options">
+            <label class="radio-label"><input type="radio" name="direcao" value="Ascendente" checked> Ascendente</label>
+            <label class="radio-label"><input type="radio" name="direcao" value="Descendente"> Descendente</label>
+          </div>
+        </div>
+        <div class="arquivo-group">
+          <div class="arquivo-label">Arquivo</div>
+          <div class="radio-options">
+            <label class="radio-label"><input type="radio" name="formato" value="PDF"> PDF</label>
+            <label class="radio-label"><input type="radio" name="formato" value="CSV" checked> CSV</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-actions">
+        <button class="btn btn-light" onclick="window.location.reload()">Limpar campos</button>
+        <button class="btn btn-primary" onclick="dispararExportacaoRelatorio()">Exportar relatório</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalEnvioOverlay">
+    <div class="modal">
+      <div class="success-message" id="successEnvioMessage">✓ Enviado para revisão no IGB com sucesso!</div>
+      <div id="modalEnvioContent">
+        <div class="modal-header">
+          <div class="modal-title">Solicitar Revisão</div>
+          <div class="modal-subtitle">Você selecionou <strong id="modalBulkCount">0</strong> item(ns). Deseja enviar para o IGB?</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-cancel" onclick="fecharModalEnvio()">Cancelar</button>
+          <button class="btn btn-send" onclick="confirmarEnvioBulk()">Confirmar Envio</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer-overlay" id="drawerOverlay" onclick="fecharDrawer()"></div>
+  <div class="drawer" id="sideDrawer">
+    <div class="drawer-header">
+      <h3 class="drawer-title" id="drawerTitle">Filtros</h3>
+      <button class="drawer-close" onclick="fecharDrawer()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4a90e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
+    <div class="drawer-body">
+      
+      <div class="drawer-search">
+        <input type="text" placeholder="Código ou descrição">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </div>
+
+      <div class="toggle-view">
+        <label class="switch">
+          <input type="checkbox">
+          <span class="slider"></span>
+        </label>
+        <span class="toggle-label">Visualizar apenas selecionados (0)</span>
+      </div>
+
+      <table class="drawer-table">
+        <thead>
+          <tr>
+            <th style="width: 48px; padding-left: 12px;"><input type="checkbox" id="selectAllDrawer"></th>
+            <th>CÓDIGO <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></th>
+            <th>DESCRIÇÃO <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></th>
+          </tr>
+        </thead>
+        <tbody id="drawerTableBody"></tbody>
+      </table>
+
+      <div class="pagination">
+        <span>1 - 10 de 32</span>
+        <div class="page-numbers">
+          <span class="active">1</span>
+          <span>2</span>
+          <span>3</span>
+          <span>4</span>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-light" onclick="fecharDrawer()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarDrawer()">Adicionar ✓</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toastExport">O relatório está sendo gerado e estará disponível em breve!</div>
+
+  <div id="print-area"></div>
+
+  <script>
+    // ==========================================
+    // LÓGICA DE SPA
+    // ==========================================
+    function switchView(viewName, event) {
+      if(event) event.stopPropagation();
+      document.getElementById('nav-controle').classList.remove('active');
+      document.getElementById('nav-relatorio').classList.remove('active');
+      document.getElementById('nav-' + viewName).classList.add('active');
+      document.getElementById('view-controle').classList.remove('active');
+      document.getElementById('view-relatorio').classList.remove('active');
+      document.getElementById('view-' + viewName).classList.add('active');
+    }
+
+    // ==========================================
+    // MENU E MULTISELECTS GERAIS
+    // ==========================================
+    function toggleMenu(element) { element.classList.toggle('expanded'); element.nextElementSibling.classList.toggle('open'); }
+    function toggleSubmenu(element) { element.classList.toggle('expanded'); element.nextElementSibling.classList.toggle('open'); }
+    function toggleN3(element, event) { event.stopPropagation(); element.classList.toggle('expanded'); element.nextElementSibling.classList.toggle('open'); }
+    function toggleAccordion(id) { document.getElementById(id).classList.toggle('open'); }
+
+    // Toggle Custom Select
+    function toggleSelect(id, event) {
+      if(event) event.stopPropagation();
+      const el = document.getElementById(id);
+      const isShowing = el.classList.contains('show');
+      document.querySelectorAll('.select-options').forEach(opt => opt.classList.remove('show'));
+      if(!isShowing) el.classList.add('show');
+    }
+
+    // Fechar ao clicar fora (Modal e Selects)
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.custom-select')) {
+        document.querySelectorAll('.select-options').forEach(el => el.classList.remove('show'));
+      }
+      if (e.target === document.getElementById('modalEnvioOverlay')) {
+        fecharModalEnvio();
+      }
+    });
+
+    // Handle Múltipla Escolha
+    function multiSelectChange(checkbox, selectId) {
+      const container = document.getElementById(selectId + '-options');
+      const allCheckboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+      
+      if (checkbox.value === 'Todos') {
+        if (checkbox.checked) {
+          allCheckboxes.forEach(cb => { if (cb.value !== 'Todos') cb.checked = false; });
+        } else {
+          checkbox.checked = true; // Impede desmarcar 'Todos' se nada mais for clicado
+        }
+      } else {
+        if (checkbox.checked) {
+          container.querySelector('input[value="Todos"]').checked = false;
+        } else {
+          const anyChecked = allCheckboxes.some(cb => cb.value !== 'Todos' && cb.checked);
+          if (!anyChecked) container.querySelector('input[value="Todos"]').checked = true;
+        }
+      }
+      updateMultiSelectText(selectId);
+      
+      if (selectId.startsWith('ctrl')) aplicarFiltrosControle();
+    }
+
+    function updateMultiSelectText(selectId) {
+      const container = document.getElementById(selectId + '-options');
+      const textEl = document.getElementById(selectId + '-text');
+      const checked = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'));
+      
+      if (checked.length === 1) {
+        textEl.innerText = checked[0].value === 'Todos' ? 'Todos' : checked[0].parentElement.innerText.trim();
+      } else if (checked.length > 1) {
+        textEl.innerText = checked.length + ' selecionados';
+      }
+    }
+
+    function getMultiSelectValues(selectId) {
+      const container = document.getElementById(selectId + '-options');
+      if(!container) return ['Todos'];
+      const checked = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+      if (checked.includes('Todos')) return ['Todos'];
+      return checked;
+    }
+
+
+    // ==========================================
+    // BASE DE DADOS GLOBAL
+    // ==========================================
+    const dadosOriginais = [
+      { codLoja: '001', loja: 'Matriz SP', sku: '12354', descricao: 'NIINA SCRT LOC DES HID CPO BLOOM 200ml', qtd: 150, dtValidade: '03/26', dias: -5, status: 'Vencido' },
+      { codLoja: '003', loja: 'Filial MG', sku: '78912', descricao: 'DIVA LOC DES HID CPO 200ml V2', qtd: 20, dtValidade: '04/26', dias: 0, status: 'Vencido' },
+      { codLoja: '001', loja: 'Matriz SP', sku: '10145', descricao: 'ESTJ CBEM DELEITE REG/25', qtd: 80, dtValidade: '05/26', dias: 25, status: 'Prestes a Vencer' },
+      { codLoja: '001', loja: 'Matriz SP', sku: '88888', descricao: 'BOTI SUN PROT SOLAR FPS50 50g', qtd: 15, dtValidade: '06/26', dias: 45, status: 'No Prazo' },
+      { codLoja: '001', loja: 'Matriz SP', sku: '88888', descricao: 'BOTI SUN PROT SOLAR FPS50 50g', qtd: 40, dtValidade: '10/26', dias: 180, status: 'No Prazo' },
+      { codLoja: '002', loja: 'Filial RJ', sku: '99911', descricao: 'MAKE B. BASE LIQ PROTETORA 30ml', qtd: 50, dtValidade: '--', dias: '--', status: 'Sem data cadastrada' },
+      { codLoja: '002', loja: 'Filial RJ', sku: '45688', descricao: 'SIAGE SHAMP LIMP PURIF MEN 250ml', qtd: 45, dtValidade: '05/26', dias: 30, status: 'Prestes a Vencer' },
+      { codLoja: '003', loja: 'Filial MG', sku: '20123', descricao: 'BOTICA 214 EDP GOLD/GARD V3 75ml', qtd: 300, dtValidade: '08/26', dias: 120, status: 'No Prazo' }
+    ];
+
+    // ==========================================
+    // LÓGICA: CONTROLE DE VALIDADE
+    // ==========================================
+    let dadosParaTabelaControle = [...dadosOriginais];
+    let currentStatusFiltro = 'Todos';
+    let itensSelecionados = new Set();
+
+    function selecionarStatusControle(status) {
+      currentStatusFiltro = status;
+      document.querySelectorAll('.summary-cards .card').forEach(c => c.classList.remove('active'));
+      const map = {'Todos':'todos','Vencido':'vencidos','Prestes a Vencer':'prestes','No Prazo':'noprazo','Sem data cadastrada':'semvalidade'};
+      document.getElementById('card-btn-' + map[status]).classList.add('active');
+      aplicarFiltrosControle();
+    }
+
+    function aplicarFiltrosControle() {
+      const lojas = getMultiSelectValues('ctrl-loja');
+      const dias = getMultiSelectValues('ctrl-dias');
+      const busca = document.getElementById('ctrl-busca').value.toLowerCase();
+
+      itensSelecionados.clear();
+      document.getElementById('selectAll').checked = false;
+      atualizarBarraAcaoControle();
+
+      const base = dadosOriginais.filter(item => {
+        const matchLoja = lojas.includes('Todos') || lojas.includes(item.loja);
+        const matchBusca = item.sku.includes(busca) || item.descricao.toLowerCase().includes(busca);
+        
+        let matchDias = true;
+        if (!dias.includes('Todos')) {
+          const maxDias = Math.max(...dias.map(Number));
+          matchDias = item.dias !== '--' && item.dias <= maxDias;
+        }
+
+        return matchLoja && matchBusca && (matchDias || item.status === 'Sem data cadastrada');
+      });
+
+      atualizarResumoControle(base);
+
+      if (currentStatusFiltro === 'Todos') {
+        dadosParaTabelaControle = [...base];
+      } else {
+        const skus = new Set();
+        base.forEach(i => { if (i.status === currentStatusFiltro) skus.add(i.loja+'_'+i.sku); });
+        dadosParaTabelaControle = base.filter(i => skus.has(i.loja+'_'+i.sku));
+      }
+      renderizarTabelaControle();
+    }
+
+    function atualizarResumoControle(base) {
+      let v=0, p=0, n=0, s=0;
+      base.forEach(i => {
+        if(i.status === 'Vencido') v++; else if(i.status === 'Prestes a Vencer') p++; else if(i.status === 'No Prazo') n++; else if(i.status === 'Sem data cadastrada') s++;
+      });
+      document.getElementById('card-todos').innerText = base.length;
+      document.getElementById('card-vencidos').innerText = v;
+      document.getElementById('card-prestes').innerText = p;
+      document.getElementById('card-noprazo').innerText = n;
+      document.getElementById('card-semvalidade').innerText = s;
+      const f = val => base.length===0 ? '0%' : Math.round((val/base.length)*100)+'%';
+      document.getElementById('perc-vencidos').innerText = f(v);
+      document.getElementById('perc-prestes').innerText = f(p);
+      document.getElementById('perc-noprazo').innerText = f(n);
+      document.getElementById('perc-semvalidade').innerText = f(s);
+    }
+
+    function handleSelectAll(cb) {
+      const isChecked = cb.checked;
+      document.querySelectorAll('.item-cb, .group-cb').forEach(c => {
+        c.checked = isChecked;
+        if(c.classList.contains('item-cb')) isChecked ? itensSelecionados.add(c.value) : itensSelecionados.delete(c.value);
+      });
+      atualizarBarraAcaoControle();
+    }
+
+    function handleItemCheck(cb) {
+      cb.checked ? itensSelecionados.add(cb.value) : itensSelecionados.delete(cb.value);
+      atualizarBarraAcaoControle();
+    }
+
+    function atualizarBarraAcaoControle() {
+      const btn = document.getElementById('btn-solicitar-revisao');
+      btn.disabled = itensSelecionados.size === 0;
+      btn.innerText = itensSelecionados.size > 0 ? `Solicitar revisão no IGB (${itensSelecionados.size})` : `Solicitar revisão no IGB`;
+    }
+
+    function getStatusStyles(status) {
+      if (status === 'Vencido') return { text: 'text-red', bg: 'bg-red' };
+      if (status === 'Prestes a Vencer') return { text: 'text-yellow', bg: 'bg-yellow' };
+      if (status === 'No Prazo') return { text: 'text-green', bg: 'bg-green' };
+      return { text: 'text-gray', bg: 'bg-gray' };
+    }
+
+    function renderizarTabelaControle() {
+      const tbody = document.getElementById('tabela-corpo');
+      tbody.innerHTML = '';
+      const grupos = {};
+      dadosParaTabelaControle.forEach((item, idx) => {
+        const key = item.loja + '_' + item.sku;
+        if (!grupos[key]) grupos[key] = [];
+        grupos[key].push({...item, _id: idx});
+      });
+
+      Object.values(grupos).forEach((grupo, gIdx) => {
+        if (grupo.length === 1) {
+          const item = grupo[0];
+          const styles = getStatusStyles(item.status);
+          tbody.innerHTML += `
+            <tr class="standard-row">
+              <td class="text-center"><input type="checkbox" class="item-cb" value="${item._id}" onchange="handleItemCheck(this)"></td>
+              <td></td>
+              <td>${item.codLoja}</td><td>${item.loja}</td><td class="fw-bold">${item.sku}</td><td>${item.descricao}</td>
+              <td class="text-right">${item.qtd}</td><td class="fw-bold">${item.dtValidade}</td><td class="text-right fw-bold ${styles.text}">${item.dias}</td>
+              <td class="text-center"><span class="chip ${styles.bg}">${item.status}</span></td>
+            </tr>`;
+        } else {
+          const total = grupo.reduce((s, i) => s + i.qtd, 0);
+          const gId = 'g-' + gIdx;
+          
+          const prioridade = { 'Vencido': 1, 'Prestes a Vencer': 2, 'No Prazo': 3, 'Sem data cadastrada': 4 };
+          const piorItem = grupo.reduce((prev, curr) => (prioridade[prev.status] < prioridade[curr.status]) ? prev : curr);
+          let statusExibicao = piorItem.status;
+          
+          if (currentStatusFiltro !== 'Todos') {
+            const itemQueDeuMatch = grupo.find(i => i.status === currentStatusFiltro);
+            if (itemQueDeuMatch) statusExibicao = itemQueDeuMatch.status;
+          }
+          const parentStyles = getStatusStyles(statusExibicao);
+
+          tbody.innerHTML += `
+            <tr class="parent-row" onclick="toggleTabelaGroup('${gId}', this)">
+              <td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="group-cb" onchange="handleGroupCheck(this, '${gId}')"></td>
+              <td class="text-center"><span class="toggle-icon">▶</span></td>
+              <td>${grupo[0].codLoja}</td><td>${grupo[0].loja}</td><td class="fw-bold">${grupo[0].sku}</td><td>${grupo[0].descricao}</td>
+              <td class="text-right">${total}</td><td class="text-gray fw-bold">Múltiplas</td><td class="text-right text-gray fw-bold">--</td>
+              <td class="text-center"><span class="chip ${parentStyles.bg}">${statusExibicao === 'Sem data cadastrada' ? 'Sem data' : statusExibicao}</span></td>
+            </tr>`;
+          
+          grupo.forEach(item => {
+            const childStyles = getStatusStyles(item.status);
+            tbody.innerHTML += `
+              <tr class="child-row ${gId}">
+                <td class="text-center"><input type="checkbox" class="item-cb child-of-${gId}" value="${item._id}" onchange="handleItemCheck(this)"></td>
+                <td></td><td></td><td></td><td></td><td class="child-indent"></td>
+                <td class="text-right">${item.qtd}</td><td class="fw-bold">${item.dtValidade}</td><td class="text-right fw-bold ${childStyles.text}">${item.dias}</td>
+                <td class="text-center"><span class="chip ${childStyles.bg}">${item.status}</span></td>
+              </tr>`;
+          });
+        }
+      });
+    }
+
+    function handleGroupCheck(cb, gId) {
+      document.querySelectorAll('.child-of-' + gId).forEach(childCb => {
+        childCb.checked = cb.checked;
+        cb.checked ? itensSelecionados.add(childCb.value) : itensSelecionados.delete(childCb.value);
+      });
+      atualizarBarraAcaoControle();
+    }
+
+    function toggleTabelaGroup(id, el) {
+      document.querySelectorAll('.' + id).forEach(r => r.classList.toggle('show'));
+      el.querySelector('.toggle-icon').classList.toggle('expanded');
+    }
+
+    function abrirModalEnvioBulk() {
+      document.getElementById('modalBulkCount').innerText = itensSelecionados.size;
+      document.getElementById('modalEnvioContent').style.display = 'block';
+      document.getElementById('successEnvioMessage').classList.remove('show');
+      document.getElementById('modalEnvioOverlay').classList.add('active');
+    }
+    function fecharModalEnvio() { document.getElementById('modalEnvioOverlay').classList.remove('active'); }
+    function confirmarEnvioBulk() {
+      document.getElementById('modalEnvioContent').style.display = 'none';
+      document.getElementById('successEnvioMessage').classList.add('show');
+      setTimeout(() => { fecharModalEnvio(); aplicarFiltrosControle(); }, 2000);
+    }
+
+    // ==========================================
+    // LÓGICA TELA 2: RELATÓRIO E GAVETA
+    // ==========================================
+    const mockLojas = [{ id: '001', desc: 'Matriz SP' }, { id: '002', desc: 'Filial RJ' }, { id: '003', desc: 'Filial MG' }];
+    const mockProdutos = [{ id: '12354', desc: 'NIINA SCRT LOC DES HID' }, { id: '78912', desc: 'DIVA LOC DES HID' }];
+    const mockGestao = [{ id: '1', desc: 'Desativ.' }, { id: '2', desc: 'MAQUIAGEM' }];
+    
+    let lojaSelecionadaDrawer = [];
+
+    function abrirDrawer(tipo) {
+      document.getElementById('drawerTitle').innerText = 'Filtros: ' + tipo;
+      const tbody = document.getElementById('drawerTableBody');
+      tbody.innerHTML = '';
+      
+      let dados = [];
+      if(tipo === 'Lojas') dados = mockLojas;
+      else if(tipo === 'Produtos') dados = mockProdutos;
+      else dados = mockGestao;
+      
+      dados.forEach(item => {
+        tbody.innerHTML += `<tr><td style="padding-left: 12px;"><input type="checkbox" class="drawer-cb" value="${item.desc}"></td><td>${item.id}</td><td>${item.desc}</td></tr>`;
+      });
+      document.getElementById('drawerOverlay').classList.add('show');
+      document.getElementById('sideDrawer').classList.add('show');
+    }
+
+    function fecharDrawer() {
+      document.getElementById('drawerOverlay').classList.remove('show');
+      document.getElementById('sideDrawer').classList.remove('show');
+    }
+
+    function confirmarDrawer() {
+      const selecionados = Array.from(document.querySelectorAll('.drawer-cb:checked')).map(cb => cb.value);
+      const titulo = document.getElementById('drawerTitle').innerText;
+      
+      let inputId = '';
+      if(titulo.includes('Lojas')) inputId = 'rel-input-loja';
+      else if(titulo.includes('Produtos')) inputId = 'rel-input-produtos';
+      else inputId = 'rel-input-gestao';
+
+      if(inputId && document.getElementById(inputId)) {
+         if(selecionados.length > 0) {
+            document.getElementById(inputId).value = selecionados.length + ' item(ns) selecionado(s)';
+            if(inputId === 'rel-input-loja') lojaSelecionadaDrawer = selecionados; 
+         } else {
+            document.getElementById(inputId).value = 'Todos';
+            if(inputId === 'rel-input-loja') lojaSelecionadaDrawer = [];
+         }
+      }
+      fecharDrawer();
+    }
+
+    function obterDadosRelatorio() {
+      const dias = getMultiSelectValues('rel-dias');
+      const status = getMultiSelectValues('rel-status');
+      const lojas = lojaSelecionadaDrawer.length > 0 ? lojaSelecionadaDrawer : ['Todos']; 
+
+      return dadosOriginais.filter(item => {
+        const matchLoja = lojas.includes('Todos') || lojas.includes(item.loja);
+        const matchStatus = status.includes('Todos') || status.includes(item.status) || (status.includes('Sem data cadastrada') && item.status === 'Sem data cadastrada');
+        
+        let matchDias = true;
+        if (!dias.includes('Todos')) {
+          const maxDias = Math.max(...dias.map(Number));
+          matchDias = item.dias !== '--' && item.dias <= maxDias;
+        }
+
+        return matchLoja && matchStatus && (matchDias || item.status === 'Sem data cadastrada');
+      });
+    }
+
+    function dispararExportacaoRelatorio() {
+      const formato = document.querySelector('input[name="formato"]:checked').value;
+      const dados = obterDadosRelatorio();
+
+      if(dados.length === 0) { alert("Nenhum dado encontrado com os filtros selecionados."); return; }
+
+      if(formato === 'CSV') exportarCSV(dados, 'relatorio_validade.csv');
+      else if (formato === 'PDF') exportarPDF(dados);
+    }
+
+    function exportarCSV(dados = dadosParaTabelaControle, nomeArquivo = 'controle_validade.csv') {
+      if(dados.length === 0) { alert("Nenhum dado."); return; }
+      const cabecalhos = ['Código da loja', 'Loja', 'SKU', 'Descrição', 'Qtd estoque', 'Dt validade', 'Dias', 'Status'];
+      const linhas = dados.map(i => [i.codLoja, i.loja, i.sku, i.descricao, i.qtd, i.dtValidade, i.dias, i.status]);
+      const conteudo = [cabecalhos.join(';'), ...linhas.map(l => l.map(c => `"${c}"`).join(';'))].join('\n');
+      const blob = new Blob(['\uFEFF' + conteudo], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = nomeArquivo;
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    function exportarPDF(dados) {
+      const printArea = document.getElementById('print-area');
+      const lojaNomeUsuario = "CP XXXX"; 
+      
+      const filtroDias = getMultiSelectValues('rel-dias').join(', ');
+      const filtroStatus = getMultiSelectValues('rel-status').join(', ');
+      const filtroLoja = lojaSelecionadaDrawer.length > 0 ? lojaSelecionadaDrawer.join(', ') : 'Todas';
+      const dataAtual = new Date().toLocaleDateString('pt-BR');
+
+      const gruposLoja = {};
+      dados.forEach(item => {
+        const nomeLoja = `Loja: ${item.codLoja} - ${item.loja}`;
+        if(!gruposLoja[nomeLoja]) gruposLoja[nomeLoja] = [];
+        gruposLoja[nomeLoja].push(item);
+      });
+
+      let htmlTabela = '';
+      Object.keys(gruposLoja).forEach(nomeLoja => {
+        htmlTabela += `<tr class="print-group-row"><td colspan="8">${nomeLoja}</td></tr>`;
+        gruposLoja[nomeLoja].forEach(item => {
+          htmlTabela += `<tr><td>${item.codLoja}</td><td>${item.loja}</td><td>${item.sku}</td><td>${item.descricao}</td><td class="text-right">${item.qtd}</td><td>${item.dtValidade}</td><td class="text-right">${item.dias}</td><td>${item.status}</td></tr>`;
+        });
+      });
+
+      printArea.innerHTML = `
+        <div class="print-title">Relatório de Validade</div>
+        <div class="print-store">${lojaNomeUsuario}</div>
+        <div class="print-filters">
+          Filtros: A vencer em: [${filtroDias}]; Loja: [${filtroLoja}]; Status: [${filtroStatus}]<br>
+          Data de geração: ${dataAtual}
+        </div>
+        <table class="print-table">
+          <thead>
+            <tr><th>Código da loja</th><th>Loja</th><th>SKU</th><th>Descrição</th><th class="text-right">Qtd estoque</th><th>Dt validade</th><th class="text-right">Dias</th><th>Status</th></tr>
+          </thead>
+          <tbody>${htmlTabela}</tbody>
+        </table>
+      `;
+      window.print();
+    }
+
+    window.onload = () => {
+      aplicarFiltrosControle();
+    };
+  </script>
+</body>
+</html>
